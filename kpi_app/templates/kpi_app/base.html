@@ -1,0 +1,33 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}Executive KPI Dashboard{% endblock %}</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+<body class="bg-gray-100 font-sans">
+    <div class="flex min-h-screen">
+        <!-- Sidebar -->
+        <div class="w-64 bg-white shadow-lg p-4">
+            <div class="flex items-center mb-6">
+                <img src="{% static 'kpi_app/images/rfi.png' %}" alt="Logo" class="w-12 h-12 mr-2">
+                <h1 class="text-xl font-bold text-gray-800">KPI Dashboard</h1>
+            </div>
+            <nav>
+                {% if user_role == "admin" %}
+                    <a href="{% url 'upload_excel' %}" class="block py-2 px-4 text-gray-700 hover:bg-gray-200 rounded">Upload Data</a>
+                {% endif %}
+                <a href="{% url 'download_summary' %}" class="block py-2 px-4 text-gray-700 hover:bg-gray-200 rounded">Download Summary</a>
+                <a href="{% url 'logout' %}" class="block py-2 px-4 text-gray-700 hover:bg-gray-200 rounded">Logout</a>
+            </nav>
+        </div>
+        <!-- Main Content -->
+        <div class="flex-1 p-6">
+            {% block content %}{% endblock %}
+        </div>
+    </div>
+</body>
+</html>

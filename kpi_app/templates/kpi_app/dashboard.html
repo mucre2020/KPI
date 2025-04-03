@@ -1,0 +1,280 @@
+{% extends 'kpi_app/base.html' %}
+{% load static %}
+
+{% block content %}
+<div class="max-w-7xl mx-auto">
+    <h2 class="text-2xl font-bold text-gray-800 mb-6">{{ user_role|capfirst }} Dashboard</h2>
+
+    <!-- Filters -->
+    <div class="bg-white p-4 rounded-lg shadow-md mb-6">
+        <h3 class="text-lg font-semibold text-gray-700 mb-4">Filters</h3>
+        <form method="get" class="grid grid-cols-1 md:grid-cols-4 gap-4">
+            {{ form.year.label_tag }}
+            {{ form.year }}
+            {{ form.month.label_tag }}
+            {{ form.month }}
+            {{ form.division.label_tag }}
+            {{ form.division }}
+            {{ form.unit.label_tag }}
+            {{ form.unit }}
+            <button type="submit" class="col-span-1 md:col-span-4 bg-blue-600 text-white py-2 px-4 rounded hover:bg-blue-700 transition">Apply Filters</button>
+        </form>
+    </div>
+
+    <!-- Metrics -->
+    <h3 class="text-xl font-semibold text-gray-700 mb-4">Key Performance Indicators</h3>
+    <div class="grid grid-cols-1 md:grid-cols-4 gap-6 mb-6">
+        <div class="bg-white p-6 rounded-lg shadow-md text-center">
+            <h4 class="text-gray-600 font-medium">Cases Received</h4>
+            <p class="text-2xl font-bold text-blue-600">{{ total_received }}</p>
+        </div>
+        <div class="bg-white p-6 rounded-lg shadow-md text-center">
+            <h4 class="text-gray-600 font-medium">Cases Reported</h4>
+            <p class="text-2xl font-bold text-blue-600">{{ total_reported }}</p>
+        </div>
+        <div class="bg-white p-6 rounded-lg shadow-md text-center">
+            <h4 class="text-gray-600 font-medium">Total Amount (RWF)</h4>
+            <p class="text-2xl font-bold text-blue-600">{{ total_amount|floatformat:0 }}</p>
+        </div>
+        <div class="bg-white p-6 rounded-lg shadow-md text-center">
+            <h4 class="text-gray-600 font-medium">Resolution Rate</h4>
+            <p class="text-2xl font-bold text-blue-600">{{ avg_resolution|floatformat:1 }}%</p>
+        </div>
+    </div>
+
+    <!-- Charts -->
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <!-- Resolution Rate Chart -->
+        <div class="bg-white p-6 rounded-lg shadow-md">
+            <h3 class="text-lg font-semibold text-gray-700 mb-4">Resolution Rate Overview</h3>
+            <div class="relative" style="height: 300px;">
+                <canvas id="resolutionChart"></canvas>
+            </div>
+            <button onclick="downloadChart('resolutionChart', 'Resolution_Rate_Overview.png')" class="mt-4 bg-green-600 text-white py-2 px-4 rounded hover:bg-green-700 transition">Download Chart</button>
+        </div>
+        <!-- Cases by Unit Chart -->
+        <div class="bg-white p-6 rounded-lg shadow-md">
+            <h3 class="text-lg font-semibold text-gray-700 mb-4">Cases by Unit</h3>
+            <div class="overflow-x-auto">
+                <canvas id="casesChart" style="min-height: 400px; max-height: 400px; width: 100%;"></canvas>
+            </div>
+            <button onclick="downloadChart('casesChart', 'Cases_by_Unit.png')" class="mt-4 bg-green-600 text-white py-2 px-4 rounded hover:bg-green-700 transition">Download Chart</button>
+        </div>
+        <!-- Trend Chart -->
+        <div class="bg-white p-6 rounded-lg shadow-md">
+            <h3 class="text-lg font-semibold text-gray-700 mb-4">Cases Trend Over Time</h3>
+            <div class="relative" style="height: 300px;">
+                <canvas id="trendChart"></canvas>
+            </div>
+            <button onclick="downloadChart('trendChart', 'Cases_Trend.png')" class="mt-4 bg-green-600 text-white py-2 px-4 rounded hover:bg-green-700 transition">Download Chart</button>
+        </div>
+        <!-- Division Breakdown Chart -->
+        <div class="bg-white p-6 rounded-lg shadow-md">
+            <h3 class="text-lg font-semibold text-gray-700 mb-4">Cases by Division</h3>
+            <div class="relative" style="height: 300px;">
+                <canvas id="divisionChart"></canvas>
+            </div>
+            <button onclick="downloadChart('divisionChart', 'Cases_by_Division.png')" class="mt-4 bg-green-600 text-white py-2 px-4 rounded hover:bg-green-700 transition">Download Chart</button>
+        </div>
+    </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
+<script>
+    // Resolution Rate Chart
+    const resCtx = document.getElementById('resolutionChart').getContext('2d');
+    new Chart(resCtx, {
+        type: 'bar',
+        data: {
+            labels: ['Resolution Rate'],
+            datasets: [{
+                label: 'Resolution Rate (%)',
+                data: [{{ avg_resolution }}],
+                backgroundColor: {{ avg_resolution }} >= 75 ? 'rgba(34, 197, 94, 0.7)' : 'rgba(239, 68, 68, 0.7)',
+                borderColor: {{ avg_resolution }} >= 75 ? 'rgba(34, 197, 94, 1)' : 'rgba(239, 68, 68, 1)',
+                borderWidth: 1
+            }]
+        },
+        options: {
+            scales: {
+                y: { beginAtZero: true, max: 100 },
+                x: { display: false }
+            },
+            plugins: {
+                legend: { display: false },
+                title: { display: true, text: 'Average Resolution Rate (%)' },
+                tooltip: {
+                    callbacks: {
+                        label: function(context) {
+                            return `Resolution Rate: ${context.raw}%`;
+                        }
+                    }
+                }
+            },
+            responsive: true,
+            maintainAspectRatio: false
+        }
+    });
+
+    // Cases by Unit Chart
+    const casesCtx = document.getElementById('casesChart').getContext('2d');
+    const casesChart = new Chart(casesCtx, {
+        type: 'bar',
+        data: {
+            labels: [{% for kpi in kpis %}'{{ kpi.unit }}',{% endfor %}],
+            datasets: [
+                {
+                    label: 'Cases Received',
+                    data: [{% for kpi in kpis %}{{ kpi.cases_received }},{% endfor %}],
+                    backgroundColor: 'rgba(59, 130, 246, 0.7)',
+                    borderColor: 'rgba(59, 130, 246, 1)',
+                    borderWidth: 1
+                },
+                {
+                    label: 'Cases Reported',
+                    data: [{% for kpi in kpis %}{{ kpi.cases_reported }},{% endfor %}],
+                    backgroundColor: 'rgba(16, 185, 129, 0.7)',
+                    borderColor: 'rgba(16, 185, 129, 1)',
+                    borderWidth: 1
+                }
+            ]
+        },
+        options: {
+            scales: {
+                y: { beginAtZero: true },
+                x: { 
+                    ticks: { 
+                        autoSkip: false, 
+                        maxRotation: 45, 
+                        minRotation: 45,
+                        font: { size: 10 }
+                    }
+                }
+            },
+            plugins: {
+                legend: { position: 'top' },
+                title: { display: true, text: 'Cases Received vs Reported by Unit' },
+                tooltip: {
+                    callbacks: {
+                        label: function(context) {
+                            return `${context.dataset.label}: ${context.raw}`;
+                        }
+                    }
+                }
+            },
+            responsive: true,
+            maintainAspectRatio: false,
+            onClick: (event, elements) => {
+                if (elements.length > 0) {
+                    const index = elements[0].index;
+                    const unit = casesChart.data.labels[index];
+                    const year = document.querySelector('select[name="year"]').value || '';
+                    const month = document.querySelector('select[name="month"]').value || '';
+                    const division = document.querySelector('select[name="division"]').value || '';
+                    window.location.href = `/unit-details/?unit=${encodeURIComponent(unit)}&year=${year}&month=${month}&division=${division}`;
+                }
+            }
+        }
+    });
+
+    // Trend Chart (Line Chart)
+    const trendCtx = document.getElementById('trendChart').getContext('2d');
+    new Chart(trendCtx, {
+        type: 'line',
+        data: {
+            labels: {{ trend_labels|safe }},
+            datasets: [
+                {
+                    label: 'Cases Received',
+                    data: {{ trend_received|safe }},
+                    borderColor: 'rgba(59, 130, 246, 1)',
+                    backgroundColor: 'rgba(59, 130, 246, 0.2)',
+                    fill: true,
+                    tension: 0.3
+                },
+                {
+                    label: 'Cases Reported',
+                    data: {{ trend_reported|safe }},
+                    borderColor: 'rgba(16, 185, 129, 1)',
+                    backgroundColor: 'rgba(16, 185, 129, 0.2)',
+                    fill: true,
+                    tension: 0.3
+                }
+            ]
+        },
+        options: {
+            scales: {
+                y: { beginAtZero: true },
+                x: { ticks: { maxRotation: 45, minRotation: 45 } }
+            },
+            plugins: {
+                legend: { position: 'top' },
+                title: { display: true, text: 'Cases Trend Over Time' },
+                tooltip: {
+                    callbacks: {
+                        label: function(context) {
+                            return `${context.dataset.label}: ${context.raw}`;
+                        }
+                    }
+                }
+            },
+            responsive: true,
+            maintainAspectRatio: false
+        }
+    });
+
+    // Division Breakdown Chart (Pie Chart)
+    const divisionCtx = document.getElementById('divisionChart').getContext('2d');
+    new Chart(divisionCtx, {
+        type: 'pie',
+        data: {
+            labels: {{ division_labels|safe }},
+            datasets: [{
+                label: 'Cases Received',
+                data: {{ division_values|safe }},
+                backgroundColor: [
+                    'rgba(59, 130, 246, 0.7)',
+                    'rgba(16, 185, 129, 0.7)',
+                    'rgba(255, 206, 86, 0.7)',
+                    'rgba(239, 68, 68, 0.7)',
+                    'rgba(153, 102, 255, 0.7)'
+                ],
+                borderColor: [
+                    'rgba(59, 130, 246, 1)',
+                    'rgba(16, 185, 129, 1)',
+                    'rgba(255, 206, 86, 1)',
+                    'rgba(239, 68, 68, 1)',
+                    'rgba(153, 102, 255, 1)'
+                ],
+                borderWidth: 1
+            }]
+        },
+        options: {
+            plugins: {
+                legend: { position: 'top' },
+                title: { display: true, text: 'Cases by Division' },
+                tooltip: {
+                    callbacks: {
+                        label: function(context) {
+                            return `${context.label}: ${context.raw} cases`;
+                        }
+                    }
+                }
+            },
+            responsive: true,
+            maintainAspectRatio: false
+        }
+    });
+
+    // Function to download chart as PNG
+    function downloadChart(chartId, filename) {
+        const canvas = document.getElementById(chartId);
+        html2canvas(canvas).then(canvas => {
+            const link = document.createElement('a');
+            link.download = filename;
+            link.href = canvas.toDataURL('image/png');
+            link.click();
+        });
+    }
+</script>
+{% endblock %}
